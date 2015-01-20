@@ -6,7 +6,8 @@
 var $ 		= require('cheerio'),
 	request = require('request'),
 	hasher  = require('crypto'),
-	urlLib  = require('url');
+	urlLib  = require('url'),
+	events  = require('events');
 	
 /************************
 	Constructor Krawler
@@ -28,16 +29,15 @@ var Krawler = function(url) {
 		It gets empty when all the urls are visited
 	*/
 	this.visitableList = [url];
-	this.onComplete = function(){};
-	this.onError = function(){};
 }
+Krawler.prototype.__proto__ = events.EventEmitter.prototype;
 /*************************
 	Method crawn
 	## Member function to crawl
 	## param : @callback : callback method for success
 	##         @tovisit{optiona} : Number of page to visit (no value or -1 for visiting nth link}
 *************************/
-Krawler.prototype.crawl = function(callback, tovisit) {
+Krawler.prototype.crawl = function(tovisit) {
 	if(tovisit) {
 		this.toVisit = Number(tovisit);
 	}
@@ -60,10 +60,10 @@ Krawler.prototype.crawl = function(callback, tovisit) {
 				if(_this.visitableList.length) {
 					visitNextPage();
 				}
-				_this.onError(error, _url);
+				_this.emit('error',error, _url);
 			}else {
 				parseLink(response, body, _url);
-				callback({url:_url, totalIndexed:_this.totalIndexed})
+				_this.emit('crawl', {url:_url, totalIndexed:_this.totalIndexed});
 			}
 		});
 	}
@@ -113,16 +113,16 @@ Krawler.prototype.crawl = function(callback, tovisit) {
 					var linkToVisit = _this.visitableList.pop();
 					visitNextPage(linkToVisit);
 				}else {
-					_this.onComplete(_this.repository, _this.totalIndexed, _this.totalVisit);
+					_this.emit('complete',_this.repository, _this.totalIndexed, _this.totalVisit);
 				}
 		}
 		else {
 		if(_this.visitableList.length && continueVisit) {
 					var linkToVisit = _this.visitableList.pop();
 					visitNextPage(linkToVisit);
-					_this.onError("status :"+response.statusCode, _url);
+					_this.emit('error', "status :"+response.statusCode, _url);
 				}else {
-					_this.onComplete(_this.repository, _this.totalIndexed, _this.totalVisit);
+					_this.emit('complete', _this.repository, _this.totalIndexed, _this.totalVisit);
 				}
 		}
 	}
